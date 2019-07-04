@@ -1,23 +1,18 @@
-main();
 
-//
-// Start here
-//
+// Get dom elements
+const canvas = document.querySelector('#glcanvas');
+const gl = canvas.getContext('webgl');
+
+if (gl) {
+    main();
+} else {
+    alert('Unable to initialize WebGL. Your browser or machine may not support it.');
+}
+
 function main() {
-    const canvas = document.querySelector('#glcanvas');
-    const gl = canvas.getContext('webgl');
 
-    // If we don't have a GL context, give up now
-
-    if (!gl) {
-        alert('Unable to initialize WebGL. Your browser or machine may not support it.');
-        return;
-    }
-
-    // Vertex shader program
+    // Get shader text
     const vsSource = document.getElementById('vertex-shader').text;
-
-    // Fragment shader program
     const fsSource = document.getElementById('fragment-shader').text;
 
     // Initialize a shader program; this is where all the lighting
@@ -46,12 +41,6 @@ function main() {
     drawScene(gl, programInfo, buffers);
 }
 
-//
-// initBuffers
-//
-// Initialize the buffers we'll need. For this demo, we just
-// have one object -- a simple two-dimensional square.
-//
 function initBuffers(gl) {
 
     // Create a buffer for the square's positions.
@@ -66,10 +55,10 @@ function initBuffers(gl) {
     // Now create an array of positions for the square.
 
     const positions = [
-        1.0, 1.0,
-        -1.0, 1.0,
-        1.0, -1.0,
-        -1.0, -1.0,
+        50, 50,
+        -50, 50,
+        50, -50,
+        -50, -50,
     ];
 
     // Now pass the list of positions into WebGL to build the
@@ -85,10 +74,9 @@ function initBuffers(gl) {
     };
 }
 
-//
-// Draw the scene.
-//
+var blah = 0.0;
 function drawScene(gl, programInfo, buffers) {
+    //blah += 0.001;
     gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     gl.clearDepth(1.0); // Clear everything
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
@@ -105,19 +93,11 @@ function drawScene(gl, programInfo, buffers) {
     // and we only want to see objects between 0.1 units
     // and 100 units away from the camera.
 
-    const fieldOfView = 45 * Math.PI / 180; // in radians
-    const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    const zNear = 0.1;
-    const zFar = 100.0;
     const projectionMatrix = mat4.create();
 
     // note: glmatrix.js always has the first argument
     // as the destination to receive the result.
-    mat4.perspective(projectionMatrix,
-        fieldOfView,
-        aspect,
-        zNear,
-        zFar);
+    mat4.ortho(projectionMatrix, 0, canvas.width, 0, canvas.height, -1, 1);
 
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
@@ -128,7 +108,7 @@ function drawScene(gl, programInfo, buffers) {
 
     mat4.translate(modelViewMatrix, // destination matrix
         modelViewMatrix, // matrix to translate
-        [-0.0, 0.0, -6.0]); // amount to translate
+        [0.0, 0.0, 0.0]); // amount to translate
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
@@ -180,14 +160,12 @@ function initShaderProgram(gl, vsSource, fsSource) {
     const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
 
     // Create the shader program
-
     const shaderProgram = gl.createProgram();
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
     gl.linkProgram(shaderProgram);
 
     // If creating the shader program failed, alert
-
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
         alert('Unable to initialize the shader program: ' + gl.getProgramInfoLog(shaderProgram));
         return null;
@@ -204,15 +182,12 @@ function loadShader(gl, type, source) {
     const shader = gl.createShader(type);
 
     // Send the source to the shader object
-
     gl.shaderSource(shader, source);
 
     // Compile the shader program
-
     gl.compileShader(shader);
 
     // See if it compiled successfully
-
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         alert('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
         gl.deleteShader(shader);
