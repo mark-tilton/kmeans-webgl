@@ -1,15 +1,12 @@
+function onLoad() {
+    
+    // Get dom elements
+    const canvas = document.querySelector('#glcanvas');
+    const gl = canvas.getContext('webgl');
 
-// Get dom elements
-const canvas = document.querySelector('#glcanvas');
-const gl = canvas.getContext('webgl');
-
-if (gl) {
-    main();
-} else {
-    alert('Unable to initialize WebGL. Your browser or machine may not support it.');
-}
-
-function main() {
+    if (!gl) {
+        alert('Unable to initialize WebGL. Your browser or machine may not support it.');
+    }
 
     // Get shader text
     const vsSource = document.getElementById('vertex-shader').text;
@@ -38,7 +35,7 @@ function main() {
     const buffers = initBuffers(gl);
 
     // Draw the scene
-    drawScene(gl, programInfo, buffers);
+    drawScene(gl, programInfo, buffers, canvas);
 }
 
 function initBuffers(gl) {
@@ -74,9 +71,7 @@ function initBuffers(gl) {
     };
 }
 
-var blah = 0.0;
-function drawScene(gl, programInfo, buffers) {
-    //blah += 0.001;
+function drawScene(gl, programInfo, buffers, canvas) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     gl.clearDepth(1.0); // Clear everything
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
@@ -105,10 +100,9 @@ function drawScene(gl, programInfo, buffers) {
 
     // Now move the drawing position a bit to where we want to
     // start drawing the square.
-
     mat4.translate(modelViewMatrix, // destination matrix
         modelViewMatrix, // matrix to translate
-        [0.0, 0.0, 0.0]); // amount to translate
+        vec3.fromValues(0.0, 0.0, 0.0)); // amount to translate
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
