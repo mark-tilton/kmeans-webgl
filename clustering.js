@@ -10,6 +10,9 @@ var gl;
 var programInfo;
 var canvas;
 
+const pointSize = 10;
+var points = []
+
 function initScene() {
 
     // Get dom elements
@@ -55,7 +58,24 @@ function initScene() {
         },
     };
 
-    circleBuffer = createCircle(gl, 200, 150);
+    // Create circle
+    const pointCount = 150;
+    const radius = 1;
+    var positions = [];
+    positions.push(0);
+    positions.push(0);
+    for (var i = 0; i < pointCount; i++)
+    {
+        var theta = i / (pointCount - 1) * Math.PI * 2;
+        positions.push(radius * Math.cos(theta)) // X Position
+        positions.push(radius * Math.sin(theta)) // Y Position
+    }
+    circleBuffer = createBuffer(gl, positions);
+    for(let x = 0; x < 150; x++) {
+        for(let y = 0; y < 150; y++) {
+            points.push([x * 20, y * 20]);
+        }
+    }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, circleBuffer.buffer);
     const numComponents = 2;
@@ -101,19 +121,6 @@ function loadShader(gl, type, source) {
     return shader;
 }
 
-function createCircle(gl, radius, pointCount) {
-    var positions = [];
-    positions.push(0);
-    positions.push(0);
-    for (var i = 0; i < pointCount; i++)
-    {
-        var theta = i / (pointCount - 1) * Math.PI * 2;
-        positions.push(radius * Math.cos(theta)) // X Position
-        positions.push(radius * Math.sin(theta)) // Y Position
-    }
-    return createBuffer(gl, positions);
-}
-
 function createBuffer(gl, data) {
 
     // Create a buffer for the square's positions.
@@ -149,16 +156,6 @@ function renderScene() {
     // Clear the canvas before we start drawing on it.
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Set the drawing position to the "identity" point, which is
-    // the center of the scene.
-    const modelViewMatrix = mat4.create();
-
-    // Now move the drawing position a bit to where we want to
-    // start drawing the square.
-    mat4.translate(modelViewMatrix, // destination matrix
-        modelViewMatrix, // matrix to translate
-        vec3.fromValues(canvas.width / 2, canvas.height / 2, 0.0)); // amount to translate
-
     // Tell WebGL to use our program when drawing
     gl.useProgram(programInfo.program);
 
@@ -167,12 +164,25 @@ function renderScene() {
         programInfo.uniformLocations.projectionMatrix,
         false,
         projectionMatrix);
-    gl.uniformMatrix4fv(
-        programInfo.uniformLocations.modelViewMatrix,
-        false,
-        modelViewMatrix);
-
+    
+    for (point in points)
     {
+        // Set the drawing position to the "identity" point, which is
+        // the center of the scene.
+        const modelViewMatrix = mat4.create();
+    
+        // Now move the drawing position a bit to where we want to
+        // start drawing the square.
+        mat4.translate(modelViewMatrix, // destination matrix
+            modelViewMatrix, // matrix to translate
+            vec3.fromValues(points[point][0], points[point][1], 0.0)); // amount to translate
+        mat4.scale(modelViewMatrix, modelViewMatrix, vec3.fromValues(pointSize, pointSize, pointSize));
+
+        gl.uniformMatrix4fv(
+            programInfo.uniformLocations.modelViewMatrix,
+            false,
+            modelViewMatrix);
+
         const offset = 0;
         const vertexCount = 151;
         gl.drawArrays(gl.TRIANGLE_FAN, offset, vertexCount);
