@@ -1,17 +1,17 @@
-
 function onLoad() {
     initScene();
     renderLoop();
 }
 
 var circleBuffer;
+var _emptyCircle;
 var projectionMatrix;
 var gl;
 var programInfo;
 var canvas;
 
 const pointSize = 10;
-var points = []
+var _points = []
 
 function initScene() {
 
@@ -60,22 +60,11 @@ function initScene() {
 
     // Create circle
     const pointCount = 150;
-    const radius = 1;
     var positions = [];
     positions.push(0);
     positions.push(0);
-    for (var i = 0; i < pointCount; i++)
-    {
-        var theta = i / (pointCount - 1) * Math.PI * 2;
-        positions.push(radius * Math.cos(theta)) // X Position
-        positions.push(radius * Math.sin(theta)) // Y Position
-    }
+    positions = positions.concat(createCircle(pointCount));
     circleBuffer = createBuffer(gl, positions);
-    for(let x = 0; x < 150; x++) {
-        for(let y = 0; y < 150; y++) {
-            points.push([x * 20, y * 20]);
-        }
-    }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, circleBuffer.buffer);
     const numComponents = 2;
@@ -93,9 +82,42 @@ function initScene() {
     gl.enableVertexAttribArray(
         programInfo.attribLocations.vertexPosition);
 
+    _emptyCircle = createBuffer(gl, createCircle(pointCount))
+
+    //gl.bindBuffer(gl.ARRAY_BUFFER, _emptyCircle.buffer);
+    //const numComponents = 2;
+    //const type = gl.FLOAT;
+    //const normalize = false;
+    //const stride = 0;
+    //const offset = 0;
+    //gl.vertexAttribPointer(
+    //    programInfo.attribLocations.vertexPosition,
+    //    numComponents,
+    //    type,
+    //    normalize,
+    //    stride,
+    //    offset);
+    //gl.enableVertexAttribArray(
+    //    programInfo.attribLocations.vertexPosition);
+
+    for(i = 0; i < 15; i++) {
+        _points.push(vec2.fromValues(Math.random() * canvas.width, Math.random() * canvas.height))
+    }
+
     // Create our orthographic projection matrix
     projectionMatrix = mat4.create();
     mat4.ortho(projectionMatrix, 0, canvas.width, 0, canvas.height, -1, 1);
+}
+
+function createCircle(count) {
+    var allPoints = [];
+    for (var i = 0; i < count; i++)
+    {
+        const theta = i / (count - 1) * Math.PI * 2;
+        allPoints.push(Math.cos(theta)); // X Position
+        allPoints.push(Math.sin(theta)); // Y Position
+    }
+    return allPoints;
 }
 
 //
@@ -165,7 +187,8 @@ function renderScene() {
         false,
         projectionMatrix);
     
-    for (point in points)
+    //gl.bindBuffer(gl.ARRAY_BUFFER, circleBuffer.buffer);
+    for (point of _points)
     {
         // Set the drawing position to the "identity" point, which is
         // the center of the scene.
@@ -175,7 +198,7 @@ function renderScene() {
         // start drawing the square.
         mat4.translate(modelViewMatrix, // destination matrix
             modelViewMatrix, // matrix to translate
-            vec3.fromValues(points[point][0], points[point][1], 0.0)); // amount to translate
+            vec3.fromValues(point[0], point[1], 0.0)); // amount to translate
         mat4.scale(modelViewMatrix, modelViewMatrix, vec3.fromValues(pointSize, pointSize, pointSize));
 
         gl.uniformMatrix4fv(
@@ -187,4 +210,38 @@ function renderScene() {
         const vertexCount = 151;
         gl.drawArrays(gl.TRIANGLE_FAN, offset, vertexCount);
     }
+
+    const blahSize = getRadius(vec2.fromValues(_mouseX, _mouseY), 3);
+    const blah = mat4.create();
+    mat4.translate(blah, // destination matrix
+        blah, // matrix to translate
+        vec3.fromValues(_mouseX, _mouseY, 0.0)); // amount to translate
+    mat4.scale(blah, blah, vec3.fromValues(blahSize, blahSize, blahSize));
+
+    gl.uniformMatrix4fv(
+        programInfo.uniformLocations.modelViewMatrix,
+        false,
+        blah);
+
+    const offset = 0;
+    const vertexCount = 151;
+    gl.drawArrays(gl.LINE_STRIP, offset, vertexCount);
+}
+
+function getRadius(targetPoint, k) {
+    var distances = [];
+    for(var point of _points) {
+        mouseToPoint = vec2.fromValues(point[0] - targetPoint[0], point[1] - targetPoint[1]);
+        distances.push(vec2.length(mouseToPoint));
+    }
+    distances.sort((a, b) => a - b);
+    return distances[k];
+}
+
+var _mouseX = 0;
+var _mouseY = 0;
+function showCoords(event) {
+    const canvasRect = canvas.getBoundingClientRect();
+    _mouseX = event.clientX - canvasRect.left;
+    _mouseY = canvas.height - event.clientY + canvasRect.top;
 }
