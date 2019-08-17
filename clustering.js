@@ -9,7 +9,8 @@ var _squareBuffer;
 var _squaredIndexBuffer;
 var _projectionMatrix;
 var _gl;
-var _programInfo;
+var _pointShaderProgram;
+var _backgroundShaderProgram;
 var _canvas;
 
 const _pointSize = 5;
@@ -25,41 +26,9 @@ function initScene() {
         alert('Unable to initialize WebGL. Your browser or machine may not support it.');
     }
 
-    // Get shader text
-    const vsSource = document.getElementById('pointVShader').text;
-    const fsSource = document.getElementById('pointFShader').text;
-
-    // Initialize a shader program; this is where all the lighting
-    // for the vertices and so forth is established.
-    const vertexShader = loadShader(_gl, _gl.VERTEX_SHADER, vsSource);
-    const fragmentShader = loadShader(_gl, _gl.FRAGMENT_SHADER, fsSource);
-
-    // Create the shader program
-    const shaderProgram = _gl.createProgram();
-    _gl.attachShader(shaderProgram, vertexShader);
-    _gl.attachShader(shaderProgram, fragmentShader);
-    _gl.linkProgram(shaderProgram);
-
-    // If creating the shader program failed, alert
-    if (!_gl.getProgramParameter(shaderProgram, _gl.LINK_STATUS)) {
-        alert('Unable to initialize the shader program: ' + _gl.getProgramInfoLog(shaderProgram));
-        return null;
-    }
-
-    // Collect all the info needed to use the shader program.
-    // Look up which attribute our shader program is using
-    // for aVertexPosition and look up uniform locations.
-    _programInfo = {
-        program: shaderProgram,
-        attribLocations: {
-            vertexPosition: _gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-        },
-        uniformLocations: {
-            projectionMatrix: _gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-            modelViewMatrix: _gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
-        },
-    };
-
+    _pointShaderProgram = createShaderProgram('pointVShader', 'pointFShader');
+    _backgroundShaderProgram = createShaderProgram('backgroundVShader', 'backgroundFShader');
+    
     // Create circle
     const pointCount = 150;
     var circlePoints = [];
@@ -109,6 +78,36 @@ function initScene() {
     // Create our orthographic projection matrix
     _projectionMatrix = mat4.create();
     mat4.ortho(_projectionMatrix, 0, _canvas.width, 0, _canvas.height, -1, 1);
+}
+
+function createShaderProgram(vShader, fShader) {
+    // Get shader text
+    const vsSource = document.getElementById(vShader).text;
+    const fsSource = document.getElementById(fShader).text;
+    
+    const vertexShader = loadShader(_gl, _gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(_gl, _gl.FRAGMENT_SHADER, fsSource);
+
+    const shaderProgram = _gl.createProgram();
+    _gl.attachShader(shaderProgram, vertexShader);
+    _gl.attachShader(shaderProgram, fragmentShader);
+    _gl.linkProgram(shaderProgram);
+
+    if (!_gl.getProgramParameter(shaderProgram, _gl.LINK_STATUS)) {
+        alert('Unable to initialize the shader program: ' + _gl.getProgramInfoLog(shaderProgram));
+        return null;
+    }
+
+    return {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: _gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+        },
+        uniformLocations: {
+            projectionMatrix: _gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+            modelViewMatrix: _gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
+        },
+    };
 }
 
 function createCircle(count) {
@@ -168,21 +167,21 @@ function createBuffer(gl, shaderType, data, numComponents, type) {
     };
 }
 
-function attribBuffer(gl, buffer) {
+function attribBuffer(gl, shaderProgram, buffer) {
     const numComponents = buffer.numComponents;
     const type = buffer.type;
     const normalize = false;
     const stride = 0;
     const offset = 0;
     gl.vertexAttribPointer(
-        _programInfo.attribLocations.vertexPosition,
+        shaderProgram.attribLocations.vertexPosition,
         numComponents,
         type,
         normalize,
         stride,
         offset);
     gl.enableVertexAttribArray(
-        _programInfo.attribLocations.vertexPosition);
+        shaderProgram.attribLocations.vertexPosition);
 }
 
 function renderLoop() {
@@ -200,16 +199,16 @@ function renderScene() {
     _gl.clear(_gl.COLOR_BUFFER_BIT | _gl.DEPTH_BUFFER_BIT);
 
     // Tell WebGL to use our program when drawing
-    _gl.useProgram(_programInfo.program);
+    _gl.useProgram(_pointShaderProgram.program);
 
     // Set the shader uniforms
     _gl.uniformMatrix4fv(
-        _programInfo.uniformLocations.projectionMatrix,
+        _pointShaderProgram.uniformLocations.projectionMatrix,
         false,
         _projectionMatrix);
     
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _circleBuffer.buffer);
-    attribBuffer(_gl, _circleBuffer);
+    attribBuffer(_gl, _pointShaderProgram, _circleBuffer);
     for (point of _points)
     {
         // Set the drawing position to the "identity" point, which is
@@ -224,7 +223,7 @@ function renderScene() {
         mat4.scale(modelViewMatrix, modelViewMatrix, vec3.fromValues(_pointSize, _pointSize, _pointSize));
 
         _gl.uniformMatrix4fv(
-            _programInfo.uniformLocations.modelViewMatrix,
+            _pointShaderProgram.uniformLocations.modelViewMatrix,
             false,
             modelViewMatrix);
 
@@ -240,25 +239,34 @@ function renderScene() {
     mat4.scale(cursorMatrix, cursorMatrix, vec3.fromValues(cursorSize, cursorSize, cursorSize));
 
     _gl.uniformMatrix4fv(
-        _programInfo.uniformLocations.modelViewMatrix,
+        _pointShaderProgram.uniformLocations.modelViewMatrix,
         false,
         cursorMatrix);
 
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _emptyCircle.buffer);
-    attribBuffer(_gl, _emptyCircle);
+    attribBuffer(_gl, _pointShaderProgram, _emptyCircle);
     _gl.drawArrays(_gl.LINE_STRIP, 0, _emptyCircle.vertexCount);
+
+    // Tell WebGL to use our program when drawing
+    _gl.useProgram(_backgroundShaderProgram.program);
+
+    // Set the shader uniforms
+    _gl.uniformMatrix4fv(
+        _backgroundShaderProgram.uniformLocations.projectionMatrix,
+        false,
+        _projectionMatrix);
 
     const squareMatrix = mat4.create();
     mat4.translate(squareMatrix, // destination matrix
         squareMatrix, // matrix to translate
         vec3.fromValues(_mouseX, _mouseY, 0.0)); // amount to translate
     _gl.uniformMatrix4fv(
-        _programInfo.uniformLocations.modelViewMatrix,
+        _backgroundShaderProgram.uniformLocations.modelViewMatrix,
         false,
         squareMatrix);
 
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _squareBuffer.buffer);
-    attribBuffer(_gl, _squareBuffer);
+    attribBuffer(_gl, _backgroundShaderProgram, _squareBuffer);
     _gl.bindBuffer(_gl.ELEMENT_ARRAY_BUFFER, _squaredIndexBuffer.buffer);
     _gl.drawElements(_gl.TRIANGLES, 
         6,
