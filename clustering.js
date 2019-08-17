@@ -53,9 +53,9 @@ function initScene() {
 
     var squarePoints = [];
     squarePoints.push(0, 0);
-    squarePoints.push(50, 0);
-    squarePoints.push(50, 50);
-    squarePoints.push(0, 50);
+    squarePoints.push(_canvas.width, 0);
+    squarePoints.push(_canvas.width, _canvas.height);
+    squarePoints.push(0, _canvas.height);
     _squareBuffer = createBuffer(_gl, 
         _gl.ARRAY_BUFFER, 
         new Float32Array(squarePoints),
@@ -199,6 +199,29 @@ function renderScene() {
     _gl.clear(_gl.COLOR_BUFFER_BIT | _gl.DEPTH_BUFFER_BIT);
 
     // Tell WebGL to use our program when drawing
+    _gl.useProgram(_backgroundShaderProgram.program);
+
+    // Set the shader uniforms
+    _gl.uniformMatrix4fv(
+        _backgroundShaderProgram.uniformLocations.projectionMatrix,
+        false,
+        _projectionMatrix);
+
+    const squareMatrix = mat4.create();
+    _gl.uniformMatrix4fv(
+        _backgroundShaderProgram.uniformLocations.modelViewMatrix,
+        false,
+        squareMatrix);
+
+    _gl.bindBuffer(_gl.ARRAY_BUFFER, _squareBuffer.buffer);
+    attribBuffer(_gl, _backgroundShaderProgram, _squareBuffer);
+    _gl.bindBuffer(_gl.ELEMENT_ARRAY_BUFFER, _squaredIndexBuffer.buffer);
+    _gl.drawElements(_gl.TRIANGLES, 
+        6,
+        _gl.UNSIGNED_INT, 
+        0);
+
+    // Tell WebGL to use our program when drawing
     _gl.useProgram(_pointShaderProgram.program);
 
     // Set the shader uniforms
@@ -246,32 +269,6 @@ function renderScene() {
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _emptyCircle.buffer);
     attribBuffer(_gl, _pointShaderProgram, _emptyCircle);
     _gl.drawArrays(_gl.LINE_STRIP, 0, _emptyCircle.vertexCount);
-
-    // Tell WebGL to use our program when drawing
-    _gl.useProgram(_backgroundShaderProgram.program);
-
-    // Set the shader uniforms
-    _gl.uniformMatrix4fv(
-        _backgroundShaderProgram.uniformLocations.projectionMatrix,
-        false,
-        _projectionMatrix);
-
-    const squareMatrix = mat4.create();
-    mat4.translate(squareMatrix, // destination matrix
-        squareMatrix, // matrix to translate
-        vec3.fromValues(_mouseX, _mouseY, 0.0)); // amount to translate
-    _gl.uniformMatrix4fv(
-        _backgroundShaderProgram.uniformLocations.modelViewMatrix,
-        false,
-        squareMatrix);
-
-    _gl.bindBuffer(_gl.ARRAY_BUFFER, _squareBuffer.buffer);
-    attribBuffer(_gl, _backgroundShaderProgram, _squareBuffer);
-    _gl.bindBuffer(_gl.ELEMENT_ARRAY_BUFFER, _squaredIndexBuffer.buffer);
-    _gl.drawElements(_gl.TRIANGLES, 
-        6,
-        _gl.UNSIGNED_INT, 
-        0);
 }
 
 function getRadius(targetPoint, k) {

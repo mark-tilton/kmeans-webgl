@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>WebGL Demo</title>
+    <title>K - Means</title>
     <link rel="stylesheet" href="webgl.css" type="text/css">
 
     <script id="pointVShader" type="x-shader/x-vertex">
@@ -16,7 +16,7 @@
     
         void main() {
             gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-            pColor = vec4(1.0, 1.0, 1.0, 1.0);
+            pColor = vec4(0.0, 0.0, 0.0, 1.0);
         }
     </script>
     <script id="pointFShader" type="x-shader/x-fragment">
