@@ -5,27 +5,29 @@ function onLoad() {
 
 var _circleBuffer;
 var _emptyCircle;
+var _squareBuffer;
+var _squaredIndexBuffer;
 var _projectionMatrix;
 var _gl;
 var _programInfo;
 var _canvas;
 
-const _pointSize = 10;
+const _pointSize = 5;
 var _points = []
 
 function initScene() {
 
     // Get dom elements
     _canvas = document.querySelector('#glcanvas');
-    _gl = _canvas.getContext('webgl');
+    _gl = _canvas.getContext('webgl2');
 
     if (!_gl) {
         alert('Unable to initialize WebGL. Your browser or machine may not support it.');
     }
 
     // Get shader text
-    const vsSource = document.getElementById('vertex-shader').text;
-    const fsSource = document.getElementById('fragment-shader').text;
+    const vsSource = document.getElementById('pointVShader').text;
+    const fsSource = document.getElementById('pointFShader').text;
 
     // Initialize a shader program; this is where all the lighting
     // for the vertices and so forth is established.
@@ -60,17 +62,49 @@ function initScene() {
 
     // Create circle
     const pointCount = 150;
-    var positions = [];
-    positions.push(0);
-    positions.push(0);
-    positions = positions.concat(createCircle(pointCount));
+    var circlePoints = [];
+    circlePoints.push(0);
+    circlePoints.push(0);
+    circlePoints = circlePoints.concat(createCircle(pointCount));
 
-    _emptyCircle = createBuffer(_gl, createCircle(pointCount))
-    _circleBuffer = createBuffer(_gl, positions);
+    _emptyCircle = createBuffer(_gl, 
+        _gl.ARRAY_BUFFER, 
+        new Float32Array(createCircle(pointCount)),
+        2,
+        _gl.FLOAT)
+    _circleBuffer = createBuffer(_gl, 
+        _gl.ARRAY_BUFFER, 
+        new Float32Array(circlePoints),
+        2,
+        _gl.FLOAT);
 
     for(i = 0; i < 15; i++) {
         _points.push(vec2.fromValues(Math.random() * _canvas.width, Math.random() * _canvas.height))
     }
+
+    var squarePoints = [];
+    squarePoints.push(0, 0);
+    squarePoints.push(50, 0);
+    squarePoints.push(50, 50);
+    squarePoints.push(0, 50);
+    _squareBuffer = createBuffer(_gl, 
+        _gl.ARRAY_BUFFER, 
+        new Float32Array(squarePoints),
+        2,
+        _gl.FLOAT);
+
+    var squareIndices = [];
+    squareIndices.push(0);
+    squareIndices.push(2);
+    squareIndices.push(1);
+    squareIndices.push(0);
+    squareIndices.push(3);
+    squareIndices.push(2);
+    _squaredIndexBuffer = createBuffer(_gl,
+        _gl.ELEMENT_ARRAY_BUFFER, 
+        new Int32Array(squareIndices),
+        1,
+        _gl.UNSIGNED_INT);
 
     // Create our orthographic projection matrix
     _projectionMatrix = mat4.create();
@@ -111,24 +145,32 @@ function loadShader(gl, type, source) {
     return shader;
 }
 
-function createBuffer(gl, data) {
-
+function createBuffer(gl, shaderType, data, numComponents, type) {
     // Create a buffer for the square's positions.
     const positionBuffer = gl.createBuffer();
 
     // Select the positionBuffer as the one to apply buffer
     // operations to from here out.
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bindBuffer(shaderType, positionBuffer);
 
     // Now pass the list of positions into WebGL to build the
     // shape. We do this by creating a Float32Array from the
     // JavaScript array, then use it to fill the current buffer. 
-    gl.bufferData(gl.ARRAY_BUFFER,
-        new Float32Array(data),
+    gl.bufferData(shaderType,
+        data,
         gl.STATIC_DRAW);
 
-    const numComponents = 2;
-    const type = gl.FLOAT;
+    return {
+        buffer: positionBuffer,
+        vertexCount: data.length / numComponents,
+        numComponents: numComponents,
+        type: type,
+    };
+}
+
+function attribBuffer(gl, buffer) {
+    const numComponents = buffer.numComponents;
+    const type = buffer.type;
     const normalize = false;
     const stride = 0;
     const offset = 0;
@@ -141,13 +183,8 @@ function createBuffer(gl, data) {
         offset);
     gl.enableVertexAttribArray(
         _programInfo.attribLocations.vertexPosition);
-
-    return {
-        buffer: positionBuffer,
-        vertexCount: data.length / numComponents,
-    };
 }
- 
+
 function renderLoop() {
     renderScene();
     window.setTimeout(renderLoop, 1000 / 60);
@@ -172,6 +209,7 @@ function renderScene() {
         _projectionMatrix);
     
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _circleBuffer.buffer);
+    attribBuffer(_gl, _circleBuffer);
     for (point of _points)
     {
         // Set the drawing position to the "identity" point, which is
@@ -194,7 +232,7 @@ function renderScene() {
         _gl.drawArrays(_gl.TRIANGLE_FAN, offset, _circleBuffer.vertexCount);
     }
 
-    const cursorSize = getRadius(vec2.fromValues(_mouseX, _mouseY), 3);
+    const cursorSize = getRadius(vec2.fromValues(_mouseX, _mouseY), 0);
     const cursorMatrix = mat4.create();
     mat4.translate(cursorMatrix, // destination matrix
         cursorMatrix, // matrix to translate
@@ -206,9 +244,26 @@ function renderScene() {
         false,
         cursorMatrix);
 
-    const offset = 0;
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _emptyCircle.buffer);
-    _gl.drawArrays(_gl.LINE_STRIP, offset, _emptyCircle.vertexCount);
+    attribBuffer(_gl, _emptyCircle);
+    _gl.drawArrays(_gl.LINE_STRIP, 0, _emptyCircle.vertexCount);
+
+    const squareMatrix = mat4.create();
+    mat4.translate(squareMatrix, // destination matrix
+        squareMatrix, // matrix to translate
+        vec3.fromValues(_mouseX, _mouseY, 0.0)); // amount to translate
+    _gl.uniformMatrix4fv(
+        _programInfo.uniformLocations.modelViewMatrix,
+        false,
+        squareMatrix);
+
+    _gl.bindBuffer(_gl.ARRAY_BUFFER, _squareBuffer.buffer);
+    attribBuffer(_gl, _squareBuffer);
+    _gl.bindBuffer(_gl.ELEMENT_ARRAY_BUFFER, _squaredIndexBuffer.buffer);
+    _gl.drawElements(_gl.TRIANGLES, 
+        6,
+        _gl.UNSIGNED_INT, 
+        0);
 }
 
 function getRadius(targetPoint, k) {
