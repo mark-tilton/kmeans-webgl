@@ -6,6 +6,7 @@ function onLoad() {
 var _circleBuffer;
 var _emptyCircle;
 var _squareBuffer;
+var _radiusBuffer;
 var _squaredIndexBuffer;
 var _projectionMatrix;
 var _gl;
@@ -14,7 +15,9 @@ var _backgroundShaderProgram;
 var _canvas;
 
 const _pointSize = 5;
-var _points = []
+var _points = [];
+
+var _backgroundPoints = [];
 
 function initScene() {
 
@@ -51,24 +54,46 @@ function initScene() {
         _points.push(vec2.fromValues(Math.random() * _canvas.width, Math.random() * _canvas.height))
     }
 
+    // Create the background
+    const squareSize = 10;
+    const horizontalPoints = Math.ceil(_canvas.width / squareSize) + 1;
+    const verticalPoints = Math.ceil(_canvas.height / squareSize) + 1;
     var squarePoints = [];
-    squarePoints.push(0, 0);
-    squarePoints.push(_canvas.width, 0);
-    squarePoints.push(_canvas.width, _canvas.height);
-    squarePoints.push(0, _canvas.height);
+    var radiusValues = [];
+    for(xi = 0; xi < horizontalPoints; xi++)
+    {
+        for(yi = 0; yi < verticalPoints; yi++)
+        {
+            const x = xi * squareSize;
+            const y = yi * squareSize;
+            squarePoints.push(x, y);
+            radiusValues.push(getRadius(vec2.fromValues(x, y), 0))
+        }
+    }
     _squareBuffer = createBuffer(_gl, 
         _gl.ARRAY_BUFFER, 
         new Float32Array(squarePoints),
         2,
         _gl.FLOAT);
+    _radiusBuffer = createBuffer(_gl,
+        _gl.ARRAY_BUFFER,
+        new Float32Array(radiusValues),
+        1,
+        _gl.FLOAT);
 
     var squareIndices = [];
-    squareIndices.push(0);
-    squareIndices.push(2);
-    squareIndices.push(1);
-    squareIndices.push(0);
-    squareIndices.push(3);
-    squareIndices.push(2);
+    for(b = 0; b < horizontalPoints - 1; b++)
+    {
+        for(i = 0; i < verticalPoints - 1; i++)
+        {
+            squareIndices.push(b * verticalPoints + i);
+            squareIndices.push(b * verticalPoints + i + verticalPoints);
+            squareIndices.push(b * verticalPoints + i + 1);
+            squareIndices.push(b * verticalPoints + i + verticalPoints);
+            squareIndices.push(b * verticalPoints + i + verticalPoints + 1);
+            squareIndices.push(b * verticalPoints + i + 1);
+        }
+    }
     _squaredIndexBuffer = createBuffer(_gl,
         _gl.ELEMENT_ARRAY_BUFFER, 
         new Int32Array(squareIndices),
@@ -167,21 +192,21 @@ function createBuffer(gl, shaderType, data, numComponents, type) {
     };
 }
 
-function attribBuffer(gl, shaderProgram, buffer) {
+function attribBuffer(gl, attribPosition, buffer) {
     const numComponents = buffer.numComponents;
     const type = buffer.type;
     const normalize = false;
     const stride = 0;
     const offset = 0;
     gl.vertexAttribPointer(
-        shaderProgram.attribLocations.vertexPosition,
+        attribPosition,
         numComponents,
         type,
         normalize,
         stride,
         offset);
     gl.enableVertexAttribArray(
-        shaderProgram.attribLocations.vertexPosition);
+        attribPosition);
 }
 
 function renderLoop() {
@@ -213,11 +238,21 @@ function renderScene() {
         false,
         squareMatrix);
 
+    _gl.bindBuffer(_gl.ARRAY_BUFFER, _radiusBuffer.buffer);
+    const radiusAttrib = _gl.getAttribLocation(_backgroundShaderProgram.program, 'aRadius');
+    _gl.vertexAttribPointer(
+        radiusAttrib,
+        1,
+        _gl.FLOAT,
+        false,
+        0,
+        0);
+    _gl.enableVertexAttribArray(radiusAttrib);
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _squareBuffer.buffer);
-    attribBuffer(_gl, _backgroundShaderProgram, _squareBuffer);
+    attribBuffer(_gl, _backgroundShaderProgram.attribLocations.positionBuffer, _squareBuffer);
     _gl.bindBuffer(_gl.ELEMENT_ARRAY_BUFFER, _squaredIndexBuffer.buffer);
     _gl.drawElements(_gl.TRIANGLES, 
-        6,
+        _squaredIndexBuffer.vertexCount,
         _gl.UNSIGNED_INT, 
         0);
 
@@ -231,7 +266,7 @@ function renderScene() {
         _projectionMatrix);
     
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _circleBuffer.buffer);
-    attribBuffer(_gl, _pointShaderProgram, _circleBuffer);
+    attribBuffer(_gl, _pointShaderProgram.attribLocations.positionBuffer, _circleBuffer);
     for (point of _points)
     {
         // Set the drawing position to the "identity" point, which is
@@ -267,7 +302,7 @@ function renderScene() {
         cursorMatrix);
 
     _gl.bindBuffer(_gl.ARRAY_BUFFER, _emptyCircle.buffer);
-    attribBuffer(_gl, _pointShaderProgram, _emptyCircle);
+    attribBuffer(_gl, _pointShaderProgram.attribLocations.positionBuffer, _emptyCircle);
     _gl.drawArrays(_gl.LINE_STRIP, 0, _emptyCircle.vertexCount);
 }
 
