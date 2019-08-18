@@ -14,8 +14,13 @@ var _pointShaderProgram;
 var _backgroundShaderProgram;
 var _canvas;
 
+const _k = 2;
+const _pointCount = 15;
 const _pointSize = 5;
 var _points = [];
+
+var _mouseX = 0;
+var _mouseY = 0;
 
 var _backgroundPoints = [];
 
@@ -50,12 +55,12 @@ function initScene() {
         2,
         _gl.FLOAT);
 
-    for(i = 0; i < 15; i++) {
+    for(i = 0; i < _pointCount; i++) {
         _points.push(vec2.fromValues(Math.random() * _canvas.width, Math.random() * _canvas.height))
     }
 
     // Create the background
-    const squareSize = 10;
+    const squareSize = 2;
     const horizontalPoints = Math.ceil(_canvas.width / squareSize) + 1;
     const verticalPoints = Math.ceil(_canvas.height / squareSize) + 1;
     var squarePoints = [];
@@ -67,7 +72,7 @@ function initScene() {
             const x = xi * squareSize;
             const y = yi * squareSize;
             squarePoints.push(x, y);
-            radiusValues.push(getRadius(vec2.fromValues(x, y), 0))
+            radiusValues.push(getRadius(vec2.fromValues(x, y), _k))
         }
     }
     _squareBuffer = createBuffer(_gl, 
@@ -244,7 +249,7 @@ function renderScene() {
         radiusAttrib,
         1,
         _gl.FLOAT,
-        false,
+        true,
         0,
         0);
     _gl.enableVertexAttribArray(radiusAttrib);
@@ -289,7 +294,7 @@ function renderScene() {
         _gl.drawArrays(_gl.TRIANGLE_FAN, offset, _circleBuffer.vertexCount);
     }
 
-    const cursorSize = getRadius(vec2.fromValues(_mouseX, _mouseY), 0);
+    const cursorSize = getRadius(vec2.fromValues(_mouseX, _mouseY), _k);
     const cursorMatrix = mat4.create();
     mat4.translate(cursorMatrix, // destination matrix
         cursorMatrix, // matrix to translate
@@ -316,8 +321,6 @@ function getRadius(targetPoint, k) {
     return distances[k];
 }
 
-var _mouseX = 0;
-var _mouseY = 0;
 function showCoords(event) {
     const canvasRect = _canvas.getBoundingClientRect();
     _mouseX = event.clientX - canvasRect.left;
